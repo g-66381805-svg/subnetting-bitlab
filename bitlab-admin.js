@@ -1,10 +1,17 @@
 const $=id=>document.getElementById(id);
 const cfg=window.BITLAB_CONFIG||{};
 
+
 const enabled = Boolean(
   cfg.url?.startsWith('https://') &&
   cfg.publishableKey?.startsWith('sb_publishable_')
 );
+
+let supabase = null,
+    adminRows = [],
+    adminAuthenticated = false,
+    savedTasks = Promise.resolve();
+
 
 $('syncAvailability').textContent=enabled?'Sambungan Supabase dikonfigurasi. Penyimpanan memerlukan Internet.':'Mod demonstrasi: Supabase belum dikonfigurasi; keputusan hanya berada pada peranti ini.';
 const htmlEscape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
