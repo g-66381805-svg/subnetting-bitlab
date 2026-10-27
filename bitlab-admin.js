@@ -1,18 +1,8 @@
 const $=id=>document.getElementById(id);
 const cfg=window.BITLAB_CONFIG||{};
-
-
-const enabled = Boolean(
-  cfg.url?.startsWith('https://') &&
-  cfg.publishableKey?.startsWith('sb_publishable_')
-);
-
-let supabase = null,
-    adminRows = [],
-    adminAuthenticated = false,
-    savedTasks = Promise.resolve();
-
-
+const enabled=/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test((cfg.url||'').trim()) && !!(cfg.publishableKey||'').trim();
+let supabase=null, adminRows=[], adminAuthenticated=false, savedTasks=Promise.resolve();
+const msg=(m)=>{$('adminMessage').textContent=m};
 $('syncAvailability').textContent=enabled?'Sambungan Supabase dikonfigurasi. Penyimpanan memerlukan Internet.':'Mod demonstrasi: Supabase belum dikonfigurasi; keputusan hanya berada pada peranti ini.';
 const htmlEscape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function connect(){
@@ -31,11 +21,45 @@ async function requireAdmin(){
  if(roleError||!data)throw Error('Akaun ini belum diberikan peranan admin.');
  return user;
 }
+// Had masa mencegah butang Log Masuk kekal tidak aktif apabila rangkaian tersekat.
+function withDeadline(promise, milliseconds = 15000) {
+ let timer;
+ return Promise.race([
+  Promise.resolve(promise),
+  new Promise((_, reject) => {
+   timer = setTimeout(() => reject(new Error('Sambungan mengambil masa terlalu lama. Semak Internet dan cuba lagi.')), milliseconds);
+  })
+ ]).finally(() => clearTimeout(timer));
+}
 $('adminSignIn').onclick=async()=>{
- const button=$('adminSignIn');button.disabled=true;msg('Memeriksa akses admin...');
- try{const db=await connect();const {error}=await db.auth.signInWithPassword({email:$('adminEmail').value.trim(),password:$('adminPassword').value});if(error)throw error;
- const user=await requireAdmin();adminAuthenticated=true;$('adminContent').classList.remove('hidden');$('adminLogin').classList.add('hidden');$('adminWelcome').textContent='Admin: '+(user.email||'');$('adminPassword').value='';msg('Log masuk berjaya.');await refresh();}
- catch(e){adminAuthenticated=false;msg('Tidak dapat log masuk: '+e.message)}finally{button.disabled=false}
+ const button=$('adminSignIn');
+ if(button.disabled) return;
+ const email=$('adminEmail').value.trim();
+ const password=$('adminPassword').value;
+ if(!email||!password){msg('Sila masukkan e-mel dan kata laluan Admin.');return;}
+ button.disabled=true;
+ msg('Menghubungi Supabase...');
+ try {
+  const db=await withDeadline(connect());
+  msg('Menyemak e-mel dan kata laluan...');
+  const {error}=await withDeadline(db.auth.signInWithPassword({email,password}));
+  if(error)throw error;
+  msg('Mengesahkan akses Admin...');
+  const user=await withDeadline(requireAdmin());
+  adminAuthenticated=true;
+  $('adminContent').classList.remove('hidden');
+  $('adminLogin').classList.add('hidden');
+  $('adminWelcome').textContent='Admin: '+(user.email||'');
+  $('adminPassword').value='';
+  msg('Log masuk berjaya.');
+  await withDeadline(refresh());
+ } catch(e) {
+  if(!adminAuthenticated){
+   msg('Tidak dapat log masuk: '+(e?.message||String(e)));
+  } else {
+   msg('Log masuk berjaya, tetapi rekod belum dapat dimuatkan: '+(e?.message||String(e)));
+  }
+ } finally {button.disabled=false;}
 };
 $('adminLogout').onclick=async()=>{try{const db=await connect();await db.auth.signOut()}catch{}adminAuthenticated=false;adminRows=[];$('adminContent').classList.add('hidden');$('adminLogin').classList.remove('hidden');msg('Anda telah log keluar.')};
 async function refresh(){
