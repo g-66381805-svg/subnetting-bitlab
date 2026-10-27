@@ -1,8 +1,11 @@
 const $=id=>document.getElementById(id);
 const cfg=window.BITLAB_CONFIG||{};
-const enabled=/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test((cfg.url||'').trim()) && !!(cfg.publishableKey||'').trim();
-let supabase=null, adminRows=[], adminAuthenticated=false, savedTasks=Promise.resolve();
-const msg=(m)=>{$('adminMessage').textContent=m};
+
+const enabled = Boolean(
+  cfg.url?.startsWith('https://') &&
+  cfg.publishableKey?.startsWith('sb_publishable_')
+);
+
 $('syncAvailability').textContent=enabled?'Sambungan Supabase dikonfigurasi. Penyimpanan memerlukan Internet.':'Mod demonstrasi: Supabase belum dikonfigurasi; keputusan hanya berada pada peranti ini.';
 const htmlEscape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function connect(){
